@@ -1,3 +1,11 @@
+# Create a new SpVoice objects
+Add-Type -AssemblyName System.speech
+$voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
+$voices = $voice.GetInstalledVoices()
+$voice.SelectVoice("Microsoft Hedda Desktop")
+# Say something
+$voice.speak("Das Skript wird gestartet, diggi.")
+
 # Set the base URL of your Nexus Repository Manager
 $baseUrl = "https://repo.incendium.net"
 
@@ -6,11 +14,10 @@ Do{
 } While ($packageType -notmatch "nuget|npm")
 
 # Set the repository name
-$repositoryName = Read-Host "Please enter the name of the SonaType repository"
-if($null -eq $repositoryName){
-    Write-Host "No repository. Terminating"
-    exit
-}
+Do{
+    $repositoryName = Read-Host "Please enter the name of the SonaType repository"
+    if($repositoryName -eq "" -or  $null -eq $repositoryName){$voice.speak("Ohne Repo nix los. Gib was ein Brudi.")}
+} While ($repositoryName -eq "" -or  $null -eq $repositoryName)
 
 # Set the REST API endpoint for listing components
 $apiEndpoint = "$baseUrl/service/rest/v1/components?repository=$repositoryName"
@@ -33,6 +40,9 @@ if($sonaTypeUsername -eq "" -or $sonaTypePassword -eq "" -or $gitTeaUsername -eq
     $credentials = Get-Content -Path ($PSScriptRoot + "/credentials.json") | ConvertFrom-Json
     if($null -eq $credentials){
         Write-Host "No credentials. Terminating"
+        # Say something
+        $voice.speak("Ohne Auth wächst kein Kraut. Woher soll der Wissen wer du bist?")
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
         exit
     }
     if($sonaTypeUsername -eq ""){$sonaTypeUsername = $credentials.sonaType.username}
@@ -64,6 +74,9 @@ if($packageType -eq "nuget"){
         catch {
             $exceptionMessage = $_.Exception.Message
             Write-Host "Source could not be created. $exceptionMessage"
+            # Say something
+            $voice.speak("Ohne Source, nix los. Ich konnte keine Quelle anlegen.")
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
             exit
         }
     }
@@ -84,6 +97,10 @@ if(Test-Path ($PSScriptRoot + "/uploadedPackages.json")){
 else {
     $uploadedPackages = New-Object Collections.Generic.List[string];
 }
+
+$uploadedPackagesCount = $uploadedPackages.Count
+# Say something
+$voice.speak("Wir haben bereits $uploadedPackagesCount Pakete hochgeladen. Geil Mann!")
 
 # Create temp directory if not existing
 if(-not (Test-Path ($PSScriptRoot + "/tempPackages"))){
@@ -113,6 +130,9 @@ try {
             $exceptionMessage = $_.Exception.Message
             Write-Host "Response unsuccessful. Exception: $exceptionMessage. Terminating"
             $uploadedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/uploadedPackages.json")
+            # Say something
+            $voice.speak("Der Server sagt nein. SonaType kann die Anfrage so nicht nehmen, du keck.")
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
             exit
         }
     
@@ -122,7 +142,6 @@ try {
     
         # Iterate through the components and add them to the dictionary
         foreach ($component in $response.items) {
-    
             $componentName = $component.name
             $componentVersion = $component.version
             $componentDownloadLink = $component.assets.downloadUrl
@@ -173,19 +192,30 @@ try {
         #    Write-Host "Limit reached. Breaking"
         #    break
         #}
+
+        if($uploadedPackages.Count % 100 -eq 0){
+            $uploadedPackagesCount = $uploadedPackages.Count
+            $voice.speak("Es wurden weitere 100 Pakete hochgeladen. Insgesamt sind es schon $uploadedPackagesCount")
+        }
     
         # Wait between every batch of packages to prevent ip block
         Start-Sleep -seconds 2
         Write-Host "`nNext page`n"
     
-    } While ($null -ne $continuationToken -and $duplicateFound -ne $true)
+    } While ($null -ne $continuationToken)
 }
 catch {
     $exceptionMessage = $_.Exception.Message
     Write-Host "Loop failed. Exception: $exceptionMessage. Terminating"
+    # Say something
+    $voice.speak("Alles Kaputt. Ich will nicht mehr.")
 }
 
 $componentsUploaded = $uploadedPackages.Count
 Write-Host "Found Components: $componentsUploaded"
 
 $uploadedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/uploadedPackages.json")
+
+# Say something
+$voice.speak("Alle Pakete hochgeladen, Chef.")
+[System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
