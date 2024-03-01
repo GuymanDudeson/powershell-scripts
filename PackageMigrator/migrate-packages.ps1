@@ -155,18 +155,11 @@ try {
             $componentEntry = "$componentName $componentVersion"
             Write-Host "Component: $componentEntry"
     
-            # If the package was already uploaded, skip it
-            if ($uploadedPackages.Contains($component.id)){
-                continue
-            } else {
-               $uploadedPackages.Add($component.id)
-            }
-
             # Skip blacklisted Nuget-Packages
             if($packageType -eq "nuget" -and $null -ne $config -and $config.nugetPrefixBlackList.Count -gt 0){
                 $blacklisted = $false;
                 foreach($blacklistedPrefix in $config.nugetPrefixBlackList){
-                    if($component.name.StartsWith($blacklistedPrefix)){
+                    if($componentName.StartsWith($blacklistedPrefix)){
                         $blacklisted = $true
                         break
                     }
@@ -185,7 +178,7 @@ try {
                 $packageScope = $npmName.Contains("@") ? $component.assets.npm.name.Split('/')[0] : ""
 
                 foreach($blacklistedSource in $config.npmSourceBlackList){
-                    if($component.name -eq $packageScope){
+                    if($componentName -eq $packageScope){
                         $blacklisted = $true
                         break
                     }
@@ -194,6 +187,29 @@ try {
                     Write-Host "Package with name: '$componentName' is blacklisted. Skipping"
                     continue
                 }
+            }
+
+            # Skip blacklisted versions
+            if($null -ne $config -and $config.versionRegexBlackList.Count -gt 0){
+                $blacklisted = $false;
+
+                foreach($blacklistedRegex in $config.versionRegexBlackList){
+                    if($componentVersion -match $blacklistedRegex){
+                        $blacklisted = $true
+                        break
+                    }
+                }
+                if($blacklisted){
+                    Write-Host "Version: '$componentVersion' of $componentName is blacklisted. Skipping"
+                    continue
+                }
+            }
+
+             # If the package was already uploaded, skip it
+             if ($uploadedPackages.Contains($component.id)){
+                continue
+            } else {
+               $uploadedPackages.Add($component.id)
             }
             
             $fileExtension = $packageType -eq "nuget" ? "nupkg" : "tgz" 
