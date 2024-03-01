@@ -1,10 +1,9 @@
 # Create a new SpVoice objects
 Add-Type -AssemblyName System.speech
 $voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
-$voices = $voice.GetInstalledVoices()
 $voice.SelectVoice("Microsoft Hedda Desktop")
 # Say something
-$voice.speak("Das Skript wird gestartet, diggi.")
+$voice.speak("Das Skript wird gestartet Bro.")
 
 # Set the base URL of your Nexus Repository Manager
 $baseUrl = "https://repo.incendium.net"
@@ -89,6 +88,14 @@ $headers = @{
     Authorization = "Basic $base64AuthInfo"
 }
 
+# Load config
+if(Test-Path ($PSScriptRoot + "/packageMigratorConfig.json")){
+    $config = Get-Content -Path ($PSScriptRoot + "/packageMigratorConfig.json") | ConvertFrom-Json
+}
+else {
+    $config = $null;
+}
+
 # Load all already uploaded Packages
 if(Test-Path ($PSScriptRoot + "/uploadedPackages.json")){
     $uploadedPackages = Get-Content -Path ($PSScriptRoot + "/uploadedPackages.json") | ConvertFrom-Json
@@ -154,6 +161,40 @@ try {
             } else {
                $uploadedPackages.Add($component.id)
             }
+
+            # Skip blacklisted Nuget-Packages
+            if($packageType -eq "nuget" -and $null -ne $config -and $config.nugetPrefixBlackList.Count -gt 0){
+                $blacklisted = $false;
+                foreach($blacklistedPrefix in $config.nugetPrefixBlackList){
+                    if($component.name.StartsWith($blacklistedPrefix)){
+                        $blacklisted = $true
+                        break
+                    }
+                }
+                if($blacklisted){
+                    Write-Host "Package with name: '$componentName' is blacklisted. Skipping"
+                    continue
+                }
+            }
+
+            # Skip blacklisted Npm-Sources
+            if($packageType -eq "npm" -and $null -ne $config -and $config.npmSourceBlackList.Count -gt 0){
+                $blacklisted = $false;
+
+                $npmName = $component.assets.npm.name
+                $packageScope = $npmName.Contains("@") ? $component.assets.npm.name.Split('/')[0] : ""
+
+                foreach($blacklistedSource in $config.npmSourceBlackList){
+                    if($component.name -eq $packageScope){
+                        $blacklisted = $true
+                        break
+                    }
+                }
+                if($blacklisted){
+                    Write-Host "Package with name: '$componentName' is blacklisted. Skipping"
+                    continue
+                }
+            }
             
             $fileExtension = $packageType -eq "nuget" ? "nupkg" : "tgz" 
             $packageFileName = "$componentName.$componentVersion.$fileExtension"
@@ -168,6 +209,7 @@ try {
                 $npmName = $component.assets.npm.name
                 $packageScope = $npmName.Contains("@") ? $component.assets.npm.name.Split('/')[0] : ""
     
+                # Only change the set registry when the scope changes
                 if($packageScope -ne $currentNpmScope){
                     $currentNpmScope = $packageScope
     
@@ -199,7 +241,7 @@ try {
         }
     
         # Wait between every batch of packages to prevent ip block
-        Start-Sleep -seconds 2
+        Start-Sleep -Milliseconds 200
         Write-Host "`nNext page`n"
     
     } While ($null -ne $continuationToken)
