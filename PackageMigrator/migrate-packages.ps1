@@ -257,7 +257,7 @@ try {
         }
     
         # Wait between every batch of packages to prevent ip block
-        Start-Sleep -Milliseconds 200
+        Start-Sleep -Milliseconds 300
         Write-Host "`nNext page`n"
     
     } While ($null -ne $continuationToken)
