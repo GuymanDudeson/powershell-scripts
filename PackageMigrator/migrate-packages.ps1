@@ -100,7 +100,7 @@ if(Test-Path ($PSScriptRoot + "/uploadedPackages.json")){
     $uploadedPackages = [System.Collections.Generic.List[string]]$uploadedPackages
 }
 else {
-    $uploadedPackages = New-Object Collections.Generic.List[string];
+    $uploadedPackages = New-Object Collections.Generic.List[string]
 }
 
 $uploadedPackagesCount = $uploadedPackages.Count
@@ -114,6 +114,7 @@ if(-not (Test-Path ($PSScriptRoot + "/tempPackages"))){
 
 $continuationToken = $null
 $currentNpmScope = ""
+$discardedPackages = New-Object Collections.Generic.List[string]
 
 try {
     Do {
@@ -163,6 +164,7 @@ try {
                 }
                 if($blacklisted){
                     Write-Host "Package with name: '$componentName' is blacklisted. Skipping"
+                    $discardedPackages.Add($componentEntry)
                     continue
                 }
             }
@@ -182,6 +184,7 @@ try {
                 }
                 if($blacklisted){
                     Write-Host "Package with name: '$componentName' is blacklisted. Skipping"
+                    $discardedPackages.Add($componentEntry)
                     continue
                 }
             }
@@ -197,7 +200,8 @@ try {
                     }
                 }
                 if($blacklisted){
-                    Write-Host "Version: '$componentVersion' of $componentName is blacklisted. Skipping"
+                    Write-Host "Version: '$componentVersion' of $componentName is blacklisted. Skipping"   
+                    $discardedPackages.Add($componentEntry)
                     continue
                 }
             }
@@ -234,9 +238,9 @@ try {
                         npm config set registry https://source.consiliari.de/api/packages/consiliari/npm/
                         npm config set -- '//source.consiliari.de/api/packages/consiliari/npm/:_authToken' "$gitTeaApiKey"
                     }
-                    
-                    npm publish $filePath
                 }
+                
+                npm publish $filePath
             }
             
             Remove-Item -Path $filePath
@@ -270,6 +274,7 @@ $componentsUploaded = $uploadedPackages.Count
 Write-Host "Found Components: $componentsUploaded"
 
 $uploadedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/uploadedPackages.json")
+$discardedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/discardedPackages_$repositoryName.json")
 
 # Say something
 $voice.speak("Alle Pakete hochgeladen, Chef.")
