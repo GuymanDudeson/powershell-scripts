@@ -41,7 +41,6 @@ if($sonaTypeUsername -eq "" -or $sonaTypePassword -eq "" -or $gitTeaUsername -eq
         Write-Host "No credentials. Terminating"
         # Say something
         $voice.speak("Ohne Auth wächst kein Kraut. Woher soll der Wissen wer du bist?")
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
         exit
     }
     if($sonaTypeUsername -eq ""){$sonaTypeUsername = $credentials.sonaType.username}
@@ -75,7 +74,6 @@ if($packageType -eq "nuget"){
             Write-Host "Source could not be created. $exceptionMessage"
             # Say something
             $voice.speak("Ohne Source, nix los. Ich konnte keine Quelle anlegen.")
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
             exit
         }
     }
@@ -139,7 +137,6 @@ try {
             $uploadedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/uploadedPackages.json")
             # Say something
             $voice.speak("Der Server sagt nein. SonaType kann die Anfrage so nicht nehmen, du keck.")
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
             exit
         }
     
@@ -251,7 +248,7 @@ try {
         #    break
         #}
 
-        if($uploadedPackages.Count % 100 -eq 0){
+        if($uploadedPackages.Count -ne 0 -and $uploadedPackages.Count % 100 -eq 0){
             $uploadedPackagesCount = $uploadedPackages.Count
             $voice.speak("Es wurden weitere 100 Pakete hochgeladen. Insgesamt sind es schon $uploadedPackagesCount")
         }
@@ -276,4 +273,3 @@ $uploadedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/uploadedPackage
 
 # Say something
 $voice.speak("Alle Pakete hochgeladen, Chef.")
-[System.Runtime.Interopservices.Marshal]::ReleaseComObject($voice) | Out-Null
