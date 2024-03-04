@@ -2,3 +2,4 @@ credentials.json
 uploadedPackages.json
 packageMigratorConfig.json
 \discardedPackages
+\missingPackages
