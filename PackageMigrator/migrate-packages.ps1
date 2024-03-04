@@ -53,30 +53,21 @@ if($sonaTypeUsername -eq "" -or $sonaTypePassword -eq "" -or $gitTeaUsername -eq
 
 # Check if a nuget source is already created and create one if not
 if($packageType -eq "nuget"){
-    $existingNugetSources = dotnet nuget list source
+    Do{
+        $nugetSourceName = Read-Host "Please enter the name of the nuget source to push to"
 
-    $sourceExists = $false
-    foreach ($line in $existingNugetSources){
-        if($line.Contains("[Enabled]")) {
-            if($line.Contains($repositoryName)){
-                $sourceExists = $true
-            }
-        }        
-    }
+        $existingNugetSources = dotnet nuget list source
 
-    if($sourceExists -eq $false){
-        $passw = ConvertTo-SecureString $gitTeaPassword -AsPlainText -Force
-        try {
-            dotnet nuget add source --name $repositoryName --username $gitTeaUsername --password $passw https://source.consiliari.de/api/packages/consiliari/nuget/index.json
+        $sourceExists = $false
+        foreach ($line in $existingNugetSources){
+            if($line.Contains("[Enabled]")) {
+                if($line.Contains($nugetSourceName)){
+                    $sourceExists = $true
+                }
+            }        
         }
-        catch {
-            $exceptionMessage = $_.Exception.Message
-            Write-Host "Source could not be created. $exceptionMessage"
-            # Say something
-            $voice.speak("Ohne Source, nix los. Ich konnte keine Quelle anlegen.")
-            exit
-        }
-    }
+
+    } While ($sourceExists -eq $false)
 }
 
 # Convert the credentials to a Base64-encoded string
@@ -221,7 +212,7 @@ try {
     
             #Download Package, upload it to GitTea, delete local Package
             if($packageType -eq "nuget"){
-                dotnet nuget push $filePath --source $repositoryName -k $gitTeaApiKey
+                dotnet nuget push $filePath --source $nugetSourceName -k $gitTeaApiKey
             } elseif ($packageType -eq "npm") {
                 $npmName = $component.assets.npm.name
                 $packageScope = $npmName.Contains("@") ? $component.assets.npm.name.Split('/')[0] : ""
@@ -239,11 +230,16 @@ try {
                         npm config set -- '//source.consiliari.de/api/packages/consiliari/npm/:_authToken' "$gitTeaApiKey"
                     }
                 }
-                
+
                 npm publish $filePath
             }
             
             Remove-Item -Path $filePath
+
+            if($uploadedPackages.Count -ne 0 -and $uploadedPackages.Count % 50 -eq 0){
+                $uploadedPackagesCount = $uploadedPackages.Count
+                $voice.speak("50 Pakete hochgeladen. Insgesamt sind es schon $uploadedPackagesCount")
+            }
         }
     
         # Safety limit
@@ -252,11 +248,6 @@ try {
         #    break
         #}
 
-        if($uploadedPackages.Count -ne 0 -and $uploadedPackages.Count % 100 -eq 0){
-            $uploadedPackagesCount = $uploadedPackages.Count
-            $voice.speak("Es wurden weitere 100 Pakete hochgeladen. Insgesamt sind es schon $uploadedPackagesCount")
-        }
-    
         # Wait between every batch of packages to prevent ip block
         Start-Sleep -Milliseconds 300
         Write-Host "`nNext page`n"
@@ -274,7 +265,7 @@ $componentsUploaded = $uploadedPackages.Count
 Write-Host "Found Components: $componentsUploaded"
 
 $uploadedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/uploadedPackages.json")
-$discardedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/discardedPackages_$repositoryName.json")
+$discardedPackages | ConvertTo-Json | Out-File ($PSScriptRoot + "/discardedPackages/$repositoryName.json")
 
 # Say something
 $voice.speak("Alle Pakete hochgeladen, Chef.")
